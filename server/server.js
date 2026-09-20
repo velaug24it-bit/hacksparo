@@ -34,11 +34,29 @@ app.use((req, res, next) => {
   next();
 });
 
+// Welcome & API Status at Root
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'CrisisCare Mesh Disaster Management Backend API is live!',
+    status: 'ONLINE',
+    database: getDBStatus(),
+    endpoints: {
+      health: '/api/health',
+      resourceRequests: '/api/resource-requests',
+      foodBridgeDonors: '/api/foodbridge/donors',
+      offlineMeshPackets: '/api/mesh/packets',
+      crisisMapLocations: '/api/map/locations'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check & System Info
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ONLINE',
-    system: 'CrisisCare Mesh - Yellow Resource SOS API',
+    system: 'CrisisCare Mesh Platform API',
     database: getDBStatus(),
     timestamp: new Date().toISOString()
   });
