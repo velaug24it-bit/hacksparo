@@ -23,10 +23,27 @@ const handleResponse = async (response) => {
   return json;
 };
 
+// Helper to self-heal malformed or mistyped API URLs (e.g. missing 'h' in ttps:// or missing protocol)
+const sanitizeApiUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  if (clean.startsWith('ttps://')) {
+    clean = 'h' + clean;
+  }
+  if (clean.startsWith('ttp://')) {
+    clean = 'h' + clean;
+  }
+  if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('/')) {
+    clean = 'https://' + clean;
+  }
+  return clean.replace(/\/$/, '');
+};
+
 // Detect API base URL: supports custom VITE_API_URL, live Render cloud backend, or local dev proxy
 const getApiBase = () => {
-  if (import.meta.env && import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  const envUrl = import.meta.env ? import.meta.env.VITE_API_URL : null;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    return sanitizeApiUrl(envUrl);
   }
   if (typeof window !== 'undefined') {
     // If hosted on Render (e.g. hacksparo-1.onrender.com) or any remote domain
