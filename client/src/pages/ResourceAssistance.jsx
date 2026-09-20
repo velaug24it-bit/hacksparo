@@ -178,7 +178,11 @@ export const ResourceAssistance = () => {
 
     try {
       const response = await api.createResourceRequest(payload);
-      const created = response.data;
+      const created = response?.data;
+
+      if (!created || !created.requestId) {
+        throw new Error(response?.message || 'Server did not return a valid request ID. Please check backend connection.');
+      }
 
       addToast('success', 'Request Registered', `Emergency Resource Request ${created.requestId} dispatched successfully!`);
 

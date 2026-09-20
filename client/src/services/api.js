@@ -23,22 +23,50 @@ const handleResponse = async (response) => {
   return json;
 };
 
-// Resilient fetch: uses Vite proxy (/api) first, then falls back to direct http://localhost:5000/api
+// Detect API base URL: supports custom VITE_API_URL, live Render cloud backend, or local dev proxy
+const getApiBase = () => {
+  if (import.meta.env && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    // If hosted on Render (e.g. hacksparo-1.onrender.com) or any remote domain
+    if (window.location.hostname.includes('onrender.com') || 
+       (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+      return 'https://hacksparo.onrender.com/api';
+    }
+  }
+  return '/api';
+};
+
+// Resilient multi-tier fetch with automatic cloud & localhost fallbacks
 const apiFetch = async (endpoint, options = {}) => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const base = getApiBase();
+  const primaryUrl = `${base}${cleanEndpoint}`;
 
-  // Strategy 1: Relative /api (proxied seamlessly by Vite without CORS)
+  // Strategy 1: Primary configured/detected URL
   try {
-    const res = await fetch(`/api${cleanEndpoint}`, options);
+    const res = await fetch(primaryUrl, options);
     return await handleResponse(res);
-  } catch (proxyError) {
-    console.warn(`[API] Proxy fetch to /api${cleanEndpoint} failed, attempting direct backend connection...`, proxyError.message);
+  } catch (primaryError) {
+    console.warn(`[API] Primary fetch to ${primaryUrl} failed, trying fallback...`, primaryError.message);
   }
 
-  // Strategy 2: Direct backend URL fallback
-  const directUrl = `http://localhost:5000/api${cleanEndpoint}`;
-  const directRes = await fetch(directUrl, options);
-  return await handleResponse(directRes);
+  // Strategy 2: Direct live Render backend fallback (if primary wasn't already Render)
+  if (!primaryUrl.includes('hacksparo.onrender.com')) {
+    try {
+      const renderUrl = `https://hacksparo.onrender.com/api${cleanEndpoint}`;
+      const renderRes = await fetch(renderUrl, options);
+      return await handleResponse(renderRes);
+    } catch (renderError) {
+      console.warn('[API] Cloud Render fallback failed:', renderError.message);
+    }
+  }
+
+  // Strategy 3: Localhost fallback for local offline development
+  const localUrl = `http://localhost:5000/api${cleanEndpoint}`;
+  const localRes = await fetch(localUrl, options);
+  return await handleResponse(localRes);
 };
 
 export const api = {
